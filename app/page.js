@@ -58,19 +58,32 @@ export default function Page() {
   const popShare = Object.fromEntries(popAll.map((x) => [x.key, x.c / maxC]));
   const recs = advise({ enemies: picked, owned, clock, popShare });
   const attackKeys = new Set([
-    'armlet', 'battle_fury', 'butterfly', 'daedalus', 'desolator', 'diffusal_blade',
-    'divine_rapier', 'harpoon', 'maelstrom', 'mjollnir', 'monkey_king_bar',
-    'manta', 'radiance', 'silver_edge', 'bloodthorn', 'witch_blade', 'parasma',
-    'revenants_brooch', 'skadi', 'satanic', 'starforge',
+    'abyssal_blade', 'aghanims_scepter', 'aghanims_shard', 'armlet', 'battle_fury',
+    'bloodthorn', 'butterfly', 'daedalus', 'desolator', 'diffusal_blade', 'disperser',
+    'divine_rapier', 'echo_sabre', 'ethereal_blade', 'falcon_blade', 'gleipnir',
+    'harpoon', 'kaya', 'kaya_and_sange', 'maelstrom', 'manta', 'mjollnir',
+    'monkey_king_bar', 'parasma', 'radiance', 'revenants_brooch', 'silver_edge',
+    'skadi', 'skull_basher', 'satanic', 'starforge', 'swift_blink', 'witch_blade',
   ]);
   const popular = popAll
     .filter((x) => items[x.key] && items[x.key].cost >= 500 && !owned.has(x.key) && !attackKeys.has(x.key))
     .sort((a, b) => b.c - a.c).slice(0, 5);
-  const attackItems = popAll
+  const attackPhases = clock < 600
+    ? ['early_game_items', 'mid_game_items', 'late_game_items']
+    : clock < 1800 ? ['mid_game_items', 'late_game_items'] : ['late_game_items'];
+  const attackCounts = {};
+  for (const itemPhase of attackPhases) {
+    for (const [id, count] of Object.entries(pop?.[itemPhase] || {})) {
+      const key = ids[id];
+      if (key) attackCounts[key] = (attackCounts[key] || 0) + count;
+    }
+  }
+  const attackItems = Object.entries(attackCounts)
+    .map(([key, c]) => ({ key, c }))
     .filter((x) => attackKeys.has(x.key) && items[x.key] && !owned.has(x.key))
     .sort((a, b) => b.c - a.c).slice(0, 4);
 
-  const shown = heroes.filter((h) => !enemies.includes(h.id) && h.localized_name.toLowerCase().includes(q.toLowerCase())).slice(0, 60);
+  const shown = heroes.filter((h) => h.localized_name.toLowerCase().includes(q.toLowerCase()));
   const toggle = (id) => setEnemies((e) => (e.includes(id) ? e.filter((x) => x !== id) : e.length < 5 ? [...e, id] : e));
   const matchupRisks = (hero) => {
     const roles = new Set((hero.roles || []).map((role) => role.toLowerCase()));
@@ -184,9 +197,9 @@ export default function Page() {
           <input placeholder="ค้นหาฮีโร่..." value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหาฮีโร่" />
           <div className="list">
             {shown.map((h) => (
-              <button key={h.id} className="hero" onClick={() => toggle(h.id)}>
+              <button key={h.id} className={'hero' + (enemies.includes(h.id) ? ' selected' : '')} onClick={() => toggle(h.id)} aria-pressed={enemies.includes(h.id)}>
                 <img src={CDN + h.img} alt="" />
-                <span>{h.localized_name}</span>
+                <span>{h.localized_name}{enemies.includes(h.id) ? ' · เลือกแล้ว' : ''}</span>
               </button>
             ))}
           </div>
@@ -216,11 +229,12 @@ export default function Page() {
           {!enemies.length && <p className="empty">เลือกฮีโร่ศัตรูทางซ้ายเพื่อรับคำแนะนำ</p>}
           {recs.map((r) => (<Counter key={r.key} r={r} />))}
           {enemies.length > 0 && !recs.length && <p className="empty">ยังไม่มีไอเทมที่ต้องรีบซื้อเพิ่ม</p>}
-          {attackItems.length > 0 && (<>
-            <h2 style={{ marginTop: 16 }}>ไอเท็มเพิ่มดาเมจ</h2>
-            <p className="note">อิงจากไอเท็มที่ฮีโร่นี้นิยมออก เป็นบิลด์พื้นฐาน ไม่ได้ปรับตามศัตรู</p>
-            {attackItems.map((p) => <Item key={p.key} k={p.key} why="เพิ่มพลังโจมตีตามบิลด์ฮีโร่" />)}
-          </>)}
+          <h2 style={{ marginTop: 16 }}>ไอเท็มโจมตี</h2>
+          <p className="note">ไอเท็มทำดาเมจที่ฮีโร่คุณนิยมออกในช่วงนี้และช่วงถัดไป</p>
+          {!heroId && <p className="empty">กำลังรอข้อมูลเกมเพื่อระบุฮีโร่ของคุณ</p>}
+          {heroId && !pop && <p className="empty">กำลังโหลดข้อมูลไอเท็มจาก OpenDota…</p>}
+          {heroId && pop && !attackItems.length && <p className="empty">ยังไม่มีข้อมูลไอเท็มโจมตีของฮีโร่นี้ในช่วงเกมนี้</p>}
+          {attackItems.map((p) => <Item key={p.key} k={p.key} why="เพิ่มดาเมจตามบิลด์ที่นิยม" />)}
           {popular.length > 0 && (<>
             <h2 style={{ marginTop: 16 }}>ไอเท็มอื่นที่ฮีโร่นี้นิยมออก</h2>
             {popular.map((p) => (<Item key={p.key} k={p.key} why="เลือกซื้อบ่อยในแมตช์จริง" />))}
